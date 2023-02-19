@@ -206,6 +206,7 @@ public class ParseTree {
 		Hashtable<String, Hashtable<String, Integer>> cfgCount = null;
 		Hashtable<String, Integer> unigramCount = null;
 		Hashtable<String, Hashtable<String, Double>> pcfg = null;
+		List<GrammarRule> ruleset = new ArrayList<GrammarRule>();
 		cfgCount = new Hashtable<String, Hashtable<String, Integer>>(); 
 		unigramCount = new Hashtable<String, Integer>();
 		pcfg = new Hashtable<String, Hashtable<String, Double>>();
@@ -235,12 +236,14 @@ public class ParseTree {
 		 }
 		}
 
+		// count the number of times each LHS occurs (similar to unigram)
 		for (String sentence: sentences) {
 			ParseTree PT = new ParseTree(sentence);
 			cfgCount = CFGMaker(PT, cfgCount);
 			unigramCount = unigramMaker(PT, unigramCount);
 		}
 
+		// put the probabilities of each rhs in the pcfg
 		for (Map.Entry<String, Hashtable<String, Integer>> entry : cfgCount.entrySet()) {
 			String lhs = entry.getKey();
 			Hashtable<String, Integer> countMap = entry.getValue();
@@ -252,6 +255,10 @@ public class ParseTree {
 			pcfg.put(lhs, probMap);
 		}
 		System.out.println(pcfg);
+
+		grammarMaker(pcfg, ruleset);
+		ruleset = binarizeGrammar(ruleset);
+		System.out.println(ruleset);
 	   }
 
 	public static Hashtable<String, Hashtable<String, Integer>> CFGMaker(ParseTree pt, Hashtable<String, Hashtable<String, Integer>> cfgCount) {
@@ -297,5 +304,55 @@ public class ParseTree {
 				}
 			}
 			return unigramCount;
+		}
+
+		public static void grammarMaker(Hashtable<String, Hashtable<String, Double>> pcfg, List<GrammarRule> rules) {
+			for (Map.Entry<String, Hashtable<String, Double>> entry : pcfg.entrySet()) {
+				String lhs = entry.getKey();
+				Hashtable<String, Double> map = entry.getValue();
+				for (Map.Entry<String, Double> entry2 : map.entrySet()) {
+					String rhsElements = entry2.getKey();
+					String[] rhsList = rhsElements.split(" ");
+					ArrayList<String> rhs = new ArrayList<String>();
+					Collections.addAll(rhs, rhsList);
+					rules.add(new GrammarRule(lhs, rhs, entry2.getValue()));
+				}
+			}
+		}
+
+		public static List<GrammarRule> binarizeGrammar(List<GrammarRule> rules) {
+			List<GrammarRule> finalRules = new ArrayList<GrammarRule>();
+			int count = 1;
+			for (GrammarRule rule: rules) {
+				if (rule.numRhsElements() > 2) {
+					List<GrammarRule> newRules = binarizeRule(rule, new ArrayList<GrammarRule>(), count, rule.getWeight());
+					finalRules.addAll(newRules);
+					count = count + newRules.size() - 1;
+				} else {
+					finalRules.add(rule);
+				}
+			}
+			return finalRules;
+		}
+
+		public static List<GrammarRule> binarizeRule(GrammarRule rule, List<GrammarRule> newRules, int count, double prob) {
+			if (rule.numRhsElements() < 3) {
+				newRules.add(rule);
+				return newRules;
+			}
+
+			String lhs = "X" + count;
+			ArrayList<String> new_rhs = new ArrayList<String>();
+			new_rhs.add(0, rule.getRhs().get(0));
+			new_rhs.add(1, rule.getRhs().get(1));
+			newRules.add(new GrammarRule(lhs, new_rhs, 1.0));
+			
+			ArrayList<String> old_rhs = rule.getRhs();
+			old_rhs.remove(0);
+			old_rhs.remove(0);
+			old_rhs.add(0, lhs);
+
+			GrammarRule next_rule = new GrammarRule(rule.getLhs(), old_rhs, prob);
+			return binarizeRule(next_rule, newRules, count + 1, prob);
 		}
 	}
