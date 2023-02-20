@@ -1,3 +1,7 @@
+// Noah Nevens
+// Waverly Wang
+// Assignment 3
+
 package nlp.parser;
 import java.util.*;
 import java.util.regex.*;
@@ -70,6 +74,20 @@ public class GrammarRule {
 		this.weight = weight;
 	}
 	
+
+	public GrammarRule(String left, ArrayList<String> rhs, double weight, boolean isLexical){
+		this.lhs = left;
+		this.rhs = rhs;
+		this.weight = weight;
+	
+		if( isLexical ){
+			if( rhs.size() != 1 ){
+				throw new RuntimeException("Tried to make a lexical PCFG with multiple children");
+			}
+			
+			lexical = true;
+		}
+	}
 	/**
 	 * Create a new Grammar rule directly from a String.  See notes at the type of this file for
 	 * the formatting of the string.

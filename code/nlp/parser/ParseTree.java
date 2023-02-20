@@ -1,3 +1,7 @@
+// Noah Nevens
+// Waverly Wang
+// Assignment 3
+
 package nlp.parser;
 import java.io.*;
 import java.util.*;
@@ -202,7 +206,7 @@ public class ParseTree {
 		}
 	}
 
-	public static void main(String[] args) {
+	public static void fileMaker(String filetoread, String pcfgfile, String binarizedfile){
 		Hashtable<String, Hashtable<String, Integer>> cfgCount = null;
 		Hashtable<String, Integer> unigramCount = null;
 		Hashtable<String, Hashtable<String, Double>> pcfg = null;
@@ -212,14 +216,15 @@ public class ParseTree {
 		pcfg = new Hashtable<String, Hashtable<String, Double>>();
 		List<String> sentences = new ArrayList<String>();
 		BufferedReader objReader = null;
+
 		try {
 		 String strCurrentLine;
 	  
-		 objReader = new BufferedReader(new FileReader("example/example.parsed"));
+		 objReader = new BufferedReader(new FileReader(filetoread));
 	  
 		 while ((strCurrentLine = objReader.readLine()) != null) {
 	  
-		  sentences.add(strCurrentLine);
+		  sentences.add(strCurrentLine); //read thru the sentences
 		 }
 	  
 		} catch (IOException e) {
@@ -248,6 +253,7 @@ public class ParseTree {
 			String lhs = entry.getKey();
 			Hashtable<String, Integer> countMap = entry.getValue();
 			Hashtable<String, Double> probMap = new Hashtable<String, Double>();
+
 			for (Map.Entry<String, Integer> entry2 : countMap.entrySet()) {
 				String rhs = entry2.getKey();
 				probMap.put(rhs, (double) entry2.getValue()/unigramCount.get(lhs));
@@ -257,10 +263,52 @@ public class ParseTree {
 		System.out.println(pcfg);
 
 		grammarMaker(pcfg, ruleset);
+		; 
+
 		ruleset = binarizeGrammar(ruleset);
-		System.out.println(ruleset);
+		; 
+
+		try {
+			FileWriter myWriter = new FileWriter(pcfgfile);
+			myWriter.write(prettyPrint(ruleset)); // write the pcfg
+			myWriter.close();
+			System.out.println("Successfully wrote to the file.");
+		  } catch (IOException e) {
+			System.out.println("An error occurred.");
+			e.printStackTrace();
+		  }
+
+		try {
+			FileWriter myWriter = new FileWriter(binarizedfile);
+			myWriter.write(prettyPrint(ruleset)); //write the binarized pcfg!
+			myWriter.close();
+			System.out.println("Successfully wrote to the file.");
+		  } catch (IOException e) {
+			System.out.println("An error occurred.");
+			e.printStackTrace();
+		  }
+
+
+	}
+
+
+
+	public static void main(String[] args) {
+		
+
+		fileMaker("nlp/data/short.parsed", "nlp/data/short.pcfg", "nlp/data/short.binary.pcfg");
+		fileMaker("nlp/data/simple.parsed", "nlp/data/simple.pcfg", "nlp/data/simple.binary.pcfg");
+		
 	   }
 
+
+	/**
+	 * Get the CFG of a parse tree 
+	 * 
+	 * @param pt the parse tree
+	 * @param cfgCount the empty hashtable which will contain the count of each rule in the parse tree
+	 * @return thecfgCount
+	 */
 	public static Hashtable<String, Hashtable<String, Integer>> CFGMaker(ParseTree pt, Hashtable<String, Hashtable<String, Integer>> cfgCount) {
 		   if (!pt.isTerminal()) {
 			Iterable<ParseTree> children = pt.getChildren();
@@ -289,6 +337,14 @@ public class ParseTree {
 			return cfgCount;
 		}
 
+
+		/**
+		 * counts how many times each non-terminal appears 
+		 * 
+		 * @param pt the parse tree
+		 * @param unigramCount the empty hashtable which will contain the count of each unigram in the parse tree
+		 * @return the unigram count 
+		 */
 		public static Hashtable<String, Integer> unigramMaker(ParseTree pt, Hashtable<String, Integer> unigramCount) {
 			if (!pt.isTerminal()) {
 				Iterable<ParseTree> children = pt.getChildren();
@@ -306,20 +362,43 @@ public class ParseTree {
 			return unigramCount;
 		}
 
+
+		/**
+		 * create the grammar rules based on the pcfg
+		 * 
+		 * @param pcfg the hashtable of pcfgs which contain the counts
+		 * @return rules list of binarized rules 
+		 * 
+		 */
 		public static void grammarMaker(Hashtable<String, Hashtable<String, Double>> pcfg, List<GrammarRule> rules) {
 			for (Map.Entry<String, Hashtable<String, Double>> entry : pcfg.entrySet()) {
 				String lhs = entry.getKey();
 				Hashtable<String, Double> map = entry.getValue();
+
+				// for each entry in pcfg extract the rhs and rhslist so you can create the grammar rule
 				for (Map.Entry<String, Double> entry2 : map.entrySet()) {
 					String rhsElements = entry2.getKey();
 					String[] rhsList = rhsElements.split(" ");
 					ArrayList<String> rhs = new ArrayList<String>();
 					Collections.addAll(rhs, rhsList);
-					rules.add(new GrammarRule(lhs, rhs, entry2.getValue()));
+
+					// check the rhs to see if lexical and update it 
+					boolean lexical = false;
+					if (rhs.size() == 1 && !(pcfg.containsKey(rhs.get(0)))){ 	// if rhs is not in the pcfg and there is only one element in rhs
+						lexical = true; 
+					}
+					rules.add(new GrammarRule(lhs, rhs, entry2.getValue(), lexical));
 				}
 			}
 		}
 
+		/**
+		 *	binarizes the grammar rules
+		 * 
+		 * @param rules the list of grammar rules 
+		 * @param rules the list of grammar rules
+		 * 
+		 */
 		public static List<GrammarRule> binarizeGrammar(List<GrammarRule> rules) {
 			List<GrammarRule> finalRules = new ArrayList<GrammarRule>();
 			int count = 1;
@@ -335,6 +414,15 @@ public class ParseTree {
 			return finalRules;
 		}
 
+		/**
+		 *	binarizes a grammar rule
+		 * 
+		 * @param rules a grammar rule 
+		 * @param newRules a list of the new binarized rules
+		 * @param count current count of the X (ex: Xcount)
+		 * @param prob prob of the original rule
+		 * @return the new rules
+		 */
 		public static List<GrammarRule> binarizeRule(GrammarRule rule, List<GrammarRule> newRules, int count, double prob) {
 			if (rule.numRhsElements() < 3) {
 				newRules.add(rule);
@@ -342,6 +430,8 @@ public class ParseTree {
 			}
 
 			String lhs = "X" + count;
+
+			// update the rhs for the binary rule
 			ArrayList<String> new_rhs = new ArrayList<String>();
 			new_rhs.add(0, rule.getRhs().get(0));
 			new_rhs.add(1, rule.getRhs().get(1));
@@ -351,8 +441,41 @@ public class ParseTree {
 			old_rhs.remove(0);
 			old_rhs.remove(0);
 			old_rhs.add(0, lhs);
-
+			
 			GrammarRule next_rule = new GrammarRule(rule.getLhs(), old_rhs, prob);
 			return binarizeRule(next_rule, newRules, count + 1, prob);
 		}
+
+		/**
+		 *	pretty prints the rules in the form LHS -> RHS1 RHS2 ... RHSN[tab][tab]PROBABILITY for non lexical 
+		 *  but LHS -> * word[tab][tab]PROBABILITY for lexical. 
+		 * 
+		 * @param ruless a list of grammar rule 
+		 * @return the pretty rules
+		 */
+		public static String prettyPrint(List <GrammarRule> rules){
+			// pretty print the rules
+
+			String pretty_rules = " ";
+			// go through each rule and check if it's lexical and then add prettiness
+			for (GrammarRule rule : rules) {
+				String lhs = rule.getLhs() ;
+				ArrayList<String> rhs = rule.getRhs();
+				String pretty_rule = lhs + " -> ";
+				if (rule.isLexical()){
+					pretty_rule += "* " + rhs.get(0) + "\t\t" + rule.getWeight() + "\n"; 
+				} else{
+
+				for (String rightelements : rhs){
+					pretty_rule += rightelements + " ";
+				}
+				pretty_rule.trim(); // cut of trailing space
+				pretty_rule += "\t\t" + rule.getWeight() + "\n"; 
+			}
+			
+			pretty_rules += pretty_rule;
+			}
+			return pretty_rules;
+	
 	}
+}
